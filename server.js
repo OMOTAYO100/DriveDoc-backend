@@ -23,6 +23,9 @@ const documentRoutes = require("./routes/documents");
 
 const app = express();
 
+// Trust proxy for Render (required for express-rate-limit)
+app.set("trust proxy", 1);
+
 // 1. Enable CORS first (to handle preflights correctly)
 const allowedOrigins = [
   "http://localhost:5173",
