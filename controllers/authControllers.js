@@ -8,8 +8,8 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
 
   const options = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production' || req.protocol === 'https',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Use 'none' for cross-site in prod
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   };
 

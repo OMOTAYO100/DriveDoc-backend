@@ -59,15 +59,33 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 // Enable CORS
-// Enable CORS
-const allowedOrigins = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "https://driivedoc.netlify.app",
+];
+
 if (process.env.CLIENT_URL) {
-  allowedOrigins.push(process.env.CLIENT_URL);
+  // Add production URL if defined
+  const clientUrl = process.env.CLIENT_URL.replace(/\/$/, "");
+  if (!allowedOrigins.includes(clientUrl)) {
+    allowedOrigins.push(clientUrl);
+  }
 }
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
+        callback(null, true);
+      } else {
+        console.warn(`Origin ${origin} blocked by CORS`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
