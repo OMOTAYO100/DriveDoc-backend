@@ -23,42 +23,7 @@ const documentRoutes = require("./routes/documents");
 
 const app = express();
 
-// Security middleware
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
-
-// Rate limiting
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: "Too many requests from this IP, please try again later.",
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 login attempts per windowMs
-  message: "Too many login attempts, please try again later.",
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Apply rate limiting
-app.use("/api/", generalLimiter);
-
-// Compression middleware
-app.use(compression());
-
-// Body parser
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// Cookie parser
-app.use(cookieParser());
-
-// Enable CORS
+// 1. Enable CORS first (to handle preflights correctly)
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -67,7 +32,6 @@ const allowedOrigins = [
 ];
 
 if (process.env.CLIENT_URL) {
-  // Add production URL if defined
   const clientUrl = process.env.CLIENT_URL.replace(/\/$/, "");
   if (!allowedOrigins.includes(clientUrl)) {
     allowedOrigins.push(clientUrl);
@@ -77,7 +41,6 @@ if (process.env.CLIENT_URL) {
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
         callback(null, true);
@@ -90,13 +53,44 @@ app.use(
   })
 );
 
+// 2. Security middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } // Allow Google OAuth popups
+}));
+
+// 3. Rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "Too many requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: "Too many login attempts, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting
+app.use("/api/", generalLimiter);
+
+// 4. Other Middlewares
+app.use(compression());
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+
 // Mount routers
 app.use("/api/auth", authRoutes);
 // Apply strict rate limiting to login/signup routes
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/signup", authLimiter);
 app.use("/api/documents", documentRoutes);
-app.use("/api/bookings", require("./routes/bookings"));
 app.use("/api/bookings", require("./routes/bookings"));
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
