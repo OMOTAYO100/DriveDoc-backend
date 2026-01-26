@@ -41,23 +41,32 @@ if (process.env.CLIENT_URL) {
 app.use(
   cors({
     origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
+      
+      const sanitizedOrigin = origin.replace(/\/$/, "");
+      const isAllowed = allowedOrigins.some(o => o.replace(/\/$/, "") === sanitizedOrigin);
+      
+      if (isAllowed || process.env.NODE_ENV === "development") {
         callback(null, true);
       } else {
-        console.warn(`Origin ${origin} blocked by CORS`);
+        console.error(`CORS BLOCKED: Origin "${origin}" is not in whitelist:`, allowedOrigins);
         callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
 // 2. Security middleware
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } // Allow Google OAuth popups
-}));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "unsafe-none" }, // More permissive for Google/FB popups
+  })
+);
 
 // 3. Rate limiting
 const generalLimiter = rateLimit({
