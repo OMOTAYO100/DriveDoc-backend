@@ -186,7 +186,12 @@ exports.oauthGoogle = async (req, res) => {
     );
 
     if (userInfo.error || !userInfo.email) {
-      return res.status(401).json({ success: false, message: 'Invalid Google token' });
+      console.error('Google OAuth Error:', userInfo.error || 'No email in profile');
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid Google token or unauthorized access.',
+        details: userInfo.error_description || 'No email returned from Google'
+      });
     }
 
     const email = userInfo.email;
@@ -194,6 +199,7 @@ exports.oauthGoogle = async (req, res) => {
 
     let user = await User.findOne({ email });
     if (!user) {
+      console.log(`Creating new Google user: ${email}`);
       const randomPass = crypto.randomBytes(16).toString('hex') + 'Aa1';
       user = await User.create({
         fullName,
@@ -207,10 +213,10 @@ exports.oauthGoogle = async (req, res) => {
     // Send token response with cookie
     sendTokenResponse(user, 200, req, res, 'Login successful');
   } catch (error) {
-    console.error(error);
+    console.error('SERVER OAUTH ERROR (Google):', error);
     res.status(500).json({
       success: false,
-      message: 'Server error. Please try again.',
+      message: 'Server error during Google authentication.',
       error: error.message,
     });
   }
@@ -229,7 +235,12 @@ exports.oauthFacebook = async (req, res) => {
       `https://graph.facebook.com/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`
     );
     if (profile.error) {
-      return res.status(401).json({ success: false, message: 'Invalid Facebook token' });
+        console.error('Facebook OAuth Error:', profile.error);
+      return res.status(401).json({ 
+          success: false, 
+          message: 'Invalid Facebook token or unauthorized access.',
+          details: profile.error.message 
+        });
     }
     const email = profile.email;
     const fullName = profile.name || 'Facebook User';
@@ -238,6 +249,7 @@ exports.oauthFacebook = async (req, res) => {
     }
     let user = await User.findOne({ email });
     if (!user) {
+      console.log(`Creating new Facebook user: ${email}`);
       const randomPass = crypto.randomBytes(16).toString('hex') + 'Aa1';
       user = await User.create({
         fullName,
@@ -251,10 +263,10 @@ exports.oauthFacebook = async (req, res) => {
     // Send token response with cookie
     sendTokenResponse(user, 200, req, res, 'Login successful');
   } catch (error) {
-    console.error(error);
+    console.error('SERVER OAUTH ERROR (Facebook):', error);
     res.status(500).json({
       success: false,
-      message: 'Server error. Please try again.',
+      message: 'Server error during Facebook authentication.',
       error: error.message,
     });
   }

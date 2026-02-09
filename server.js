@@ -31,9 +31,10 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:5175",
-  "https://driivedoc.netlify.app",
+  "https://drivedoc.netlify.app", // Fixed typo (driivedoc -> drivedoc)
   "https://drivedoc.org",
   "https://www.drivedoc.org",
+  "https://drivedoc-backend.onrender.com", // Allow direct API access for testing
 ];
 
 if (process.env.CLIENT_URL) {
@@ -53,9 +54,13 @@ app.use(
       const isAllowed = allowedOrigins.some(o => o.replace(/\/$/, "") === sanitizedOrigin);
       
       if (isAllowed || process.env.NODE_ENV === "development") {
+        if (process.env.NODE_ENV === "development" || !isAllowed) {
+            // Log when using dev fallback or just to verify
+            console.log(`CORS ALLOWED: Origin "${origin}"`);
+        }
         callback(null, true);
       } else {
-        console.error(`CORS BLOCKED: Origin "${origin}" is not in whitelist:`, allowedOrigins);
+        console.error(`CORS BLOCKED: Origin "${origin}" is not in whitelist. Allowed origins:`, allowedOrigins);
         callback(new Error("Not allowed by CORS"));
       }
     },
