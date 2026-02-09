@@ -32,6 +32,8 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:5175",
   "https://driivedoc.netlify.app",
+  "https://drivedoc.org",
+  "https://www.drivedoc.org",
 ];
 
 if (process.env.CLIENT_URL) {
