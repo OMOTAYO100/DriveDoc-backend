@@ -3,7 +3,7 @@ const https = require('https');
 const crypto = require('crypto');
 
 // Helper function to send token response with cookie
-const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
+const sendTokenResponse = (user, statusCode, req, res, message = 'Success') => {
   const token = user.getSignedJwtToken();
 
   const options = {
@@ -66,7 +66,7 @@ exports.signup = async (req, res) => {
     });
 
     // Send token response with cookie
-    sendTokenResponse(user, 201, res, 'Account created successfully');
+    sendTokenResponse(user, 201, req, res, 'Account created successfully');
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -113,7 +113,7 @@ exports.login = async (req, res) => {
     }
 
     // Send token response with cookie
-    sendTokenResponse(user, 200, res, 'Login successful');
+    sendTokenResponse(user, 200, req, res, 'Login successful');
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -205,7 +205,7 @@ exports.oauthGoogle = async (req, res) => {
     }
     
     // Send token response with cookie
-    sendTokenResponse(user, 200, res, 'Login successful');
+    sendTokenResponse(user, 200, req, res, 'Login successful');
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -249,7 +249,7 @@ exports.oauthFacebook = async (req, res) => {
     }
     
     // Send token response with cookie
-    sendTokenResponse(user, 200, res, 'Login successful');
+    sendTokenResponse(user, 200, req, res, 'Login successful');
   } catch (error) {
     console.error(error);
     res.status(500).json({

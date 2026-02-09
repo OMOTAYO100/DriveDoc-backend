@@ -67,7 +67,7 @@ app.use(
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    crossOriginOpenerPolicy: { policy: "unsafe-none" }, // More permissive for Google/FB popups
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }, // Standard for Google/FB popups
   })
 );
 
@@ -242,6 +242,9 @@ const intervalMs =
 setInterval(notifyExpiredDocuments, intervalMs);
 notifyExpiredDocuments();
 
+const path = require("path");
+const PORT = process.env.PORT || 5000;
+
 // Health check route
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -250,7 +253,18 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+// Serve static assets in production
+if (process.env.NODE_ENV === "production") {
+  // Set static folder
+  app.use(express.static(path.join(__dirname, "../my-project/dist")));
+
+  app.get("*", (req, res) => {
+    // If request is not an API call, serve the frontend
+    if (!req.url.startsWith("/api")) {
+      res.sendFile(path.resolve(__dirname, "../my-project", "dist", "index.html"));
+    }
+  });
+}
 
 const server = app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
