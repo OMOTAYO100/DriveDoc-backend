@@ -54,13 +54,8 @@ app.use(
       const isAllowed = allowedOrigins.some(o => o.replace(/\/$/, "") === sanitizedOrigin);
       
       if (isAllowed || process.env.NODE_ENV === "development") {
-        if (process.env.NODE_ENV === "development" || !isAllowed) {
-            // Log when using dev fallback or just to verify
-            console.log(`CORS ALLOWED: Origin "${origin}"`);
-        }
         callback(null, true);
       } else {
-        console.error(`CORS BLOCKED: Origin "${origin}" is not in whitelist. Allowed origins:`, allowedOrigins);
         callback(new Error("Not allowed by CORS"));
       }
     },
