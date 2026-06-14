@@ -82,10 +82,8 @@ exports.updateDocument = async (req, res) => {
       });
     }
 
-    document = await Document.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    Object.assign(document, req.body);
+    await document.save();
 
     res.status(200).json({
       success: true,

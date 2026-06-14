@@ -179,54 +179,117 @@ const intervalMs = process.env.NODE_ENV === "development" ? 60 * 1000 : 60 * 60 
 
 // ... Full notification logic restored below ...
 const fullNotifyExpired = async () => {
-    try {
-      const now = new Date();
-      const expiredDocs = await Document.find({ expiryDate: { $lte: now } });
-      const soonDays = parseInt(process.env.EXPIRY_SOON_DAYS || "30", 10);
-      const soonThreshold = new Date(Date.now() + soonDays * 24 * 60 * 60 * 1000);
-      const expiringSoonDocs = await Document.find({
-        expiryDate: { $gt: now, $lte: soonThreshold },
+  try {
+    const now = new Date();
+    const documents = await Document.find({});
+    const usersMap = {};
+
+    for (const doc of documents) {
+      const expiry = new Date(doc.expiryDate);
+      const diffMs = expiry - now;
+      const daysUntilExpiry = diffMs / (1000 * 60 * 60 * 24);
+
+      let shouldNotify = false;
+      let notificationTitle = "";
+      let notificationBody = "";
+      let notificationTag = `expiry-${doc._id}`;
+      let notificationType = ""; // 'monthBefore', 'daily', 'expired'
+
+      const expiryDateStr = expiry.toLocaleDateString(undefined, { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
       });
-      const usersMap = {};
-      for (const doc of expiredDocs) {
+
+      if (daysUntilExpiry < 0) {
+        // Document has expired
+        if (!doc.notifications || !doc.notifications.expiredSent) {
+          shouldNotify = true;
+          notificationType = "expired";
+          notificationTitle = "Document Expired";
+          notificationBody = `Your ${doc.type} (No. ${doc.number}) expired on ${expiryDateStr}.`;
+        }
+      } else if (daysUntilExpiry <= 7) {
+        // Daily countdown: notify every day starting 7 days prior up to expiration
+        const todayStr = now.toDateString();
+        const lastDailySentStr = doc.notifications?.lastDailySentAt 
+          ? new Date(doc.notifications.lastDailySentAt).toDateString() 
+          : "";
+
+        if (todayStr !== lastDailySentStr) {
+          shouldNotify = true;
+          notificationType = "daily";
+          const daysRound = Math.ceil(daysUntilExpiry);
+          notificationTitle = `Expiring Soon: ${doc.type}`;
+          notificationBody = `Your ${doc.type} (No. ${doc.number}) expires in ${daysRound} day${daysRound !== 1 ? 's' : ''} on ${expiryDateStr}.`;
+        }
+      } else if (daysUntilExpiry <= 30 && daysUntilExpiry > 7) {
+        // 1 month before warning
+        if (!doc.notifications || !doc.notifications.monthBeforeSent) {
+          shouldNotify = true;
+          notificationType = "monthBefore";
+          notificationTitle = `Expiring in 1 Month: ${doc.type}`;
+          notificationBody = `Your ${doc.type} (No. ${doc.number}) will expire in 30 days on ${expiryDateStr}.`;
+        }
+      }
+
+      if (shouldNotify) {
         const uid = String(doc.user);
         if (!usersMap[uid]) {
           const u = await User.findById(uid);
           usersMap[uid] = u ? u.pushSubscriptions.filter((s) => s.enabled) : [];
         }
-        for (const sub of usersMap[uid]) {
+
+        const subscriptions = usersMap[uid];
+        for (const sub of subscriptions) {
           try {
             await webpush.sendNotification(
               { endpoint: sub.endpoint, keys: sub.keys },
               JSON.stringify({
-                title: "Document expired",
-                body: `${doc.type} (${doc.number}) has expired`,
+                title: notificationTitle,
+                options: {
+                  body: notificationBody,
+                  tag: notificationTag,
+                  icon: "/icons/icon-192x192.png",
+                  badge: "/icons/badge-72x72.png",
+                  vibrate: [200, 100, 200],
+                  renotify: true,
+                  requireInteraction: true,
+                  data: {
+                    url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/documents`
+                  }
+                }
               })
             );
-          } catch (_) {}
+          } catch (err) {
+            console.error(`Error sending push notification: ${err.message}`);
+          }
         }
+
+        // Initialize notifications object if not exists
+        if (!doc.notifications) {
+          doc.notifications = {
+            monthBeforeSent: false,
+            lastDailySentAt: null,
+            expiredSent: false
+          };
+        }
+
+        // Update database flags
+        if (notificationType === "expired") {
+          doc.notifications.expiredSent = true;
+        } else if (notificationType === "daily") {
+          doc.notifications.lastDailySentAt = now;
+        } else if (notificationType === "monthBefore") {
+          doc.notifications.monthBeforeSent = true;
+        }
+
+        await doc.save();
       }
-      for (const doc of expiringSoonDocs) {
-        const uid = String(doc.user);
-        if (!usersMap[uid]) {
-          const u = await User.findById(uid);
-          usersMap[uid] = u ? u.pushSubscriptions.filter((s) => s.enabled) : [];
-        }
-        for (const sub of usersMap[uid]) {
-          try {
-            await webpush.sendNotification(
-              { endpoint: sub.endpoint, keys: sub.keys },
-              JSON.stringify({
-                title: "Document expiring soon",
-                body: `${doc.type} (${doc.number}) expires on ${new Date(
-                  doc.expiryDate
-                ).toLocaleDateString()}`,
-              })
-            );
-          } catch (_) {}
-        }
-      }
-    } catch (_) {}
+    }
+  } catch (error) {
+    console.error("Error running fullNotifyExpired:", error);
+  }
 };
 setInterval(fullNotifyExpired, intervalMs);
 

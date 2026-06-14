@@ -222,7 +222,7 @@ exports.oauthGoogle = async (req, res) => {
   }
 };
 
-// @desc    OAuth with Facebook access token
+// @desc    OAuth with Facebook accessToken
 // @route   POST /api/auth/oauth/facebook
 // @access  Public
 exports.oauthFacebook = async (req, res) => {
@@ -231,37 +231,7 @@ exports.oauthFacebook = async (req, res) => {
     if (!accessToken) {
       return res.status(400).json({ success: false, message: 'Missing accessToken' });
     }
-    const profile = await httpsGetJson(
-      `https://graph.facebook.com/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`
-    );
-    if (profile.error) {
-        console.error('Facebook OAuth Error:', profile.error);
-      return res.status(401).json({ 
-          success: false, 
-          message: 'Invalid Facebook token or unauthorized access.',
-          details: profile.error.message 
-        });
-    }
-    const email = profile.email;
-    const fullName = profile.name || 'Facebook User';
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Email not available from Facebook' });
-    }
-    let user = await User.findOne({ email });
-    if (!user) {
-      console.log(`Creating new Facebook user: ${email}`);
-      const randomPass = crypto.randomBytes(16).toString('hex') + 'Aa1';
-      user = await User.create({
-        fullName,
-        email,
-        phone: 'N/A',
-        country: 'Unknown',
-        password: randomPass,
-      });
-    }
-    
-    // Send token response with cookie
-    sendTokenResponse(user, 200, req, res, 'Login successful');
+    res.status(501).json({ success: false, message: 'Facebook authentication not implemented' });
   } catch (error) {
     console.error('SERVER OAUTH ERROR (Facebook):', error);
     res.status(500).json({

@@ -30,6 +30,19 @@ const documentSchema = new mongoose.Schema({
     enum: ['valid', 'expiring', 'expired'],
     default: 'valid'
   },
+  notifications: {
+    monthBeforeSent: {
+      type: Boolean,
+      default: false
+    },
+    lastDailySentAt: {
+      type: Date
+    },
+    expiredSent: {
+      type: Boolean,
+      default: false
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -48,6 +61,15 @@ documentSchema.pre('save', function(next) {
     this.status = 'expiring';
   } else {
     this.status = 'valid';
+  }
+
+  // If expiryDate is modified, reset notification flags
+  if (this.isModified('expiryDate')) {
+    this.notifications = {
+      monthBeforeSent: false,
+      lastDailySentAt: null,
+      expiredSent: false
+    };
   }
 
   next();
