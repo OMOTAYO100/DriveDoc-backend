@@ -1,0 +1,75 @@
+# Render blueprint for the DriveDoc API.
+# Secrets are NOT stored here — set them in the Render dashboard. Values marked
+# sync:false are prompted for on first deploy and never committed.
+
+services:
+  - type: web
+    name: drivedoc-backend
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: CLIENT_URL
+        value: https://drivedoc.org
+      - key: API_PUBLIC_URL
+        value: https://drivedoc-backend.onrender.com
+      - key: MAIL_FROM
+        value: DriveDoc <noreply@drivedoc.org>
+      - key: VAPID_CONTACT_EMAIL
+        value: support@drivedoc.org
+      - key: TERMS_VERSION
+        value: "2026-10-07"
+      # --- set these in the dashboard ---
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+
+  # Expiry reminders. Running this as a scheduled job rather than an in-process
+  # setInterval means a sleeping or restarted instance gets woken, not skipped.
+  # The job is idempotent within a UTC day, so a retry is harmless.
+  - type: cron
+    name: drivedoc-expiry-sweep
+    runtime: node
+    plan: starter
+    region: oregon
+    schedule: "0 * * * *"
+    buildCommand: npm ci --omit=dev
+    startCommand: >
+      node -e "
+      const https=require('https');
+      const req=https.request(process.env.API_URL+'/api/jobs/notify-expiring',
+        {method:'POST',headers:{'x-cron-secret':process.env.CRON_SECRET}},
+        r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>{console.log(r.statusCode,d);process.exit(r.statusCode===200?0:1)})});
+      req.on('error',e=>{console.error(e.message);process.exit(1)});
+      req.end();
+      "
+    envVars:
+      - key: API_URL
+        value: https://drivedoc-backend.onrender.com
+      - key: CRON_SECRET
+        fromService:
+          type: web
+          name: drivedoc-backend
+          envVarKey: CRON_SECRET
