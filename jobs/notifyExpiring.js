@@ -106,7 +106,8 @@ const sendPushes = async (subscriptions, decision, doc, clientUrl, summary) => {
             vibrate: [200, 100, 200],
             renotify: true,
             requireInteraction: true,
-            data: { url: `${clientUrl}/?doc=${doc._id}` }
+            // Deep link straight onto this document's renewal guidance.
+                data: { url: `${clientUrl}/documents/${doc._id}` }
           }
         })
       );
