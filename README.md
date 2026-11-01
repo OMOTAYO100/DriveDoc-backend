@@ -263,6 +263,49 @@ browser would expose it and anyone could spend your budget.
    server; `["google-failed"]` means it is, but Google rejected the call —
    check the server log for the reason (usually billing or API not enabled).
 
+
+### Getting a Resend key (email)
+
+Without this, password resets and every expiry reminder are written to the
+server log instead of being sent. Email is the only reminder channel that
+reaches every user, so this is not optional for launch.
+
+1. **Sign up** at [resend.com](https://resend.com). No card required.
+
+2. **Add your domain**: *Domains -> Add Domain* -> `drivedoc.org`. Resend then
+   shows a set of DNS records (a DKIM `TXT`, an SPF `TXT`, and usually an `MX`
+   for bounce handling).
+
+3. **Add those records in Netlify.** `drivedoc.org` uses NS1 nameservers, which
+   means Netlify DNS manages it: *Netlify -> Domains -> drivedoc.org -> DNS
+   records -> Add a record*. Copy each one across exactly. There is no existing
+   SPF or MX record on the domain, so nothing conflicts.
+
+4. **Verify.** Back in Resend, hit Verify. DNS usually propagates in minutes,
+   occasionally an hour.
+
+5. **Create the key**: *API Keys -> Create*. Give it **Sending access** only —
+   it never needs to read anything. It starts with `re_`, and is shown once.
+
+6. **Set both variables** on Render:
+
+   ```
+   RESEND_API_KEY = re_...
+   MAIL_FROM      = DriveDoc <noreply@drivedoc.org>
+   ```
+
+   `MAIL_FROM` must be on the domain you verified, or sending is rejected.
+
+**Skipping verification:** `onboarding@resend.dev` sends without any domain
+setup, but only ever delivers to your own Resend account address. Fine for
+testing the flow, useless for real users.
+
+**Free tier limits worth knowing:** 3,000 emails/month and **100 per day**, one
+domain. Reminders are grouped into one email per user per day, so the daily cap
+is roughly 100 users with something due on the same day. Comfortable at launch,
+worth watching later. Sending pauses at the cap rather than silently billing
+you.
+
 ### Coverage reality check
 
 Measured against live OpenStreetMap, searching by city:
